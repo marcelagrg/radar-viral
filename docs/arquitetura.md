@@ -18,7 +18,7 @@ Fontes externas ─► collectors/ ─► ObservationIn ─► storage/ (histór
 radar_viral/
   config.py, models.py
   storage/      schema, conexão, repositório         (Etapa 1)
-  collectors/   base.py + um módulo por fonte        (Etapa 2+)
+  collectors/   csv_importer.py (Etapa 2); APIs futuras, um módulo por fonte
   processing/   limpeza de texto, famílias           (Etapa 4)
   analysis/     crescimento, aceleração, persistência (Etapa 5)
   scoring/      pontuação com pesos em config/        (Etapa 6)
@@ -34,9 +34,15 @@ scripts/  tests/  docs/  data/
 - `collection_runs` — cada execução de coleta (início, fim, status, total, erro).
 - `observations` — uma linha por item por coleta; nunca é sobrescrita.
   Guarda `raw_payload` (resposta original) para reprocessar no futuro.
+  `reference_date` (Etapa 2) = data a que o valor se refere; `collected_at` = quando entrou no banco.
+- `collection_runs.file_sha256` (Etapa 2) impede importar o mesmo arquivo duas vezes.
 
 ## Decisões
 - **SQLAlchemy Core** (e não sqlite3 puro): o mesmo código funciona em SQLite e
   PostgreSQL. Não usamos o ORM por enquanto para manter o SQL visível.
 - **UTC** em todas as datas.
 - **Migrações (Alembic)** só quando precisarmos alterar tabelas existentes.
+
+## Fontes
+- Mercado Livre: descartado (API exige OAuth; documentação e API recusaram acesso a partir da nuvem).
+- Etapa 2: importação manual de CSV, sem dependência de API ou scraping.

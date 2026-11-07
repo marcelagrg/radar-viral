@@ -36,8 +36,17 @@ def get_or_create_source(engine: Engine, code: str, name: str, base_url: str | N
         return result.inserted_primary_key[0]
 
 
-def start_run(engine: Engine, source_id: int, country: str) -> int:
-    """Registra o início de uma coleta e devolve o id da execução."""
+def start_run(
+    engine: Engine,
+    source_id: int,
+    country: str,
+    source_file: str | None = None,
+    file_sha256: str | None = None,
+) -> int:
+    """Registra o início de uma coleta e devolve o id da execução.
+
+    source_file e file_sha256 só são usados em importações de arquivo.
+    """
     with engine.begin() as conn:
         result = conn.execute(
             insert(collection_runs).values(
@@ -46,6 +55,8 @@ def start_run(engine: Engine, source_id: int, country: str) -> int:
                 started_at=utc_now(),
                 status="running",
                 items_collected=0,
+                source_file=source_file,
+                file_sha256=file_sha256,
             )
         )
         return result.inserted_primary_key[0]
@@ -69,6 +80,17 @@ def finish_run(engine: Engine, run_id: int, status: str, error_message: str | No
                 error_message=error_message,
             )
         )
+
+
+def find_successful_import(engine: Engine, file_sha256: str) -> dict[str, Any] | None:
+    """Procura uma importação bem-sucedida de um arquivo com este hash."""
+    query = select(collection_runs).where(
+        collection_runs.c.file_sha256 == file_sha256,
+        collection_runs.c.status == "success",
+    )
+    with engine.connect() as conn:
+        row = conn.execute(query).first()
+    return dict(row._mapping) if row else None
 
 
 def add_observations(engine: Engine, run_id: int, items: Iterable[ObservationIn]) -> int:
@@ -100,6 +122,10 @@ def get_term_history(engine: Engine, term: str, include_simulated: bool = False)
     query = select(observations).where(observations.c.term == term)
     if not include_simulated:
         query = query.where(observations.c.is_simulated.is_(False))
-    query = query.order_by(observations.c.collected_at, observations.c.id)
+    # Ordena pela data de referência; dados sem ela (coletas "ao vivo")
+    # usam a data da coleta como desempate.
+    query = query.order_by(
+        observations.c.reference_date, observations.c.collected_at, observations.c.id
+    )
     with engine.connect() as conn:
         return [dict(row._mapping) for row in conn.execute(query)]

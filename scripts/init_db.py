@@ -10,7 +10,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from radar_viral.config import load_settings  # noqa: E402
-from radar_viral.storage.database import get_engine, init_db  # noqa: E402
+from radar_viral.storage.database import SchemaOutdatedError, get_engine, init_db  # noqa: E402
 
 
 def main() -> int:
@@ -21,7 +21,12 @@ def main() -> int:
         return 1
 
     engine = get_engine(settings.database_url)
-    tables = init_db(engine)
+    try:
+        tables = init_db(engine)
+    except SchemaOutdatedError as exc:
+        print(f"[ERRO] {exc}")
+        print("Se o banco ainda não tem dados reais, apague o arquivo .db e rode este script de novo.")
+        return 1
     print(f"Banco: {settings.database_url}")
     print(f"Tabelas disponíveis: {', '.join(tables)}")
     print("Banco inicializado com sucesso.")

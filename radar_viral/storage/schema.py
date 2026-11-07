@@ -12,6 +12,7 @@ from sqlalchemy import (
     JSON,
     Boolean,
     Column,
+    Date,
     DateTime,
     Float,
     ForeignKey,
@@ -49,6 +50,11 @@ collection_runs = Table(
     Column("status", String(20), nullable=False),  # running | success | partial | failed
     Column("items_collected", Integer, nullable=False, default=0),
     Column("error_message", Text),
+    # Preenchidos quando a coleta é a importação de um arquivo (Etapa 2).
+    # O hash SHA-256 é a "impressão digital" do conteúdo: impede importar
+    # o mesmo arquivo duas vezes e duplicar o histórico.
+    Column("source_file", String(255)),
+    Column("file_sha256", String(64), index=True),
 )
 
 # O histórico propriamente dito: uma linha por item por coleta.
@@ -59,6 +65,9 @@ observations = Table(
     Column("run_id", Integer, ForeignKey("collection_runs.id"), nullable=False),
     Column("source_id", Integer, ForeignKey("sources.id"), nullable=False),
     Column("collected_at", DateTime(timezone=True), nullable=False),
+    # Data a que o valor se refere. Difere de collected_at quando importamos
+    # séries históricas: um CSV baixado hoje pode trazer dados de 2024.
+    Column("reference_date", Date),
     Column("country", String(2), nullable=False),
     Column("term", String(500), nullable=False),
     Column("external_id", String(100)),
@@ -76,5 +85,6 @@ observations = Table(
     # Índices aceleram as consultas mais comuns: histórico de um termo e
     # tudo que uma fonte coletou num período.
     Index("ix_obs_term_collected", "term", "collected_at"),
+    Index("ix_obs_term_reference", "term", "reference_date"),
     Index("ix_obs_source_collected", "source_id", "collected_at"),
 )

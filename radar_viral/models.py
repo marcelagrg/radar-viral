@@ -8,6 +8,7 @@ permite trocar ou adicionar fontes sem mexer no armazenamento.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import date
 from typing import Any
 
 
@@ -21,6 +22,7 @@ class ObservationIn:
 
     term: str                         # nome do produto ou termo pesquisado
     country: str = "BR"               # código ISO de 2 letras
+    reference_date: date | None = None  # data a que o valor se refere
     external_id: str | None = None    # id do item na fonte (ex.: MLB123...)
     category_id: str | None = None
     category_name: str | None = None
@@ -41,6 +43,8 @@ class ObservationIn:
         self.country = (self.country or "").strip().upper()
         if len(self.country) != 2 or not self.country.isalpha():
             raise ValueError(f"country inválido: {self.country!r}")
+        if self.reference_date is not None and self.reference_date > date.today():
+            raise ValueError(f"reference_date no futuro: {self.reference_date}")
         if self.rank_position is not None and self.rank_position < 1:
             raise ValueError("rank_position deve ser >= 1")
         for name in ("price", "search_volume"):
