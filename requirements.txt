@@ -4,3 +4,4 @@ SQLAlchemy>=2.0,<3      # acesso ao banco (SQLite agora, PostgreSQL depois)
 python-dotenv>=1.0,<2   # lê variáveis do arquivo .env
 pytest>=8,<9            # testes automatizados
 scikit-learn>=1.5,<2    # TF-IDF, similaridade e agrupamento (Etapa 4)
+pandas>=2.2,<4          # séries temporais e indicadores (Etapa 5)

@@ -3,7 +3,7 @@
 Plataforma para identificar produtos e tendências **emergentes** (crescimento
 acelerado com potencial de expansão), começando pelo mercado brasileiro.
 
-> Status: **Etapa 4 — Famílias de produtos** concluída.
+> Status: **Etapa 5 — Indicadores de crescimento** concluída.
 
 ## Instalação (Windows / PowerShell, na pasta do projeto)
 
@@ -37,7 +37,16 @@ python scripts\families.py agrupar
 python scripts\families.py listar
 ```
 
-Detalhes e limitações: `docs/familias.md`. Para testar com dados **simulados**:
+Detalhes e limitações: `docs/familias.md`.
+
+## Indicadores de crescimento
+
+```powershell
+python scripts\analyze.py --detalhe
+python scripts\analyze.py --janela 30 --csv data\indicadores.csv
+```
+
+Fórmulas, regras e limitações: `docs/analise.md`. Para testar com dados **simulados**:
 
 ```powershell
 python scripts\import_csv.py tests\fixtures\exemplo_simulado.csv --fonte teste_manual --simulado
@@ -57,7 +66,11 @@ python scripts\import_csv.py tests\fixtures\exemplo_simulado.csv --fonte teste_m
 | `radar_viral/collectors/google_trends_csv.py` | CSV exportado do Google Trends |
 | `radar_viral/processing/text_normalizer.py` | Normalização de texto (regras) |
 | `radar_viral/processing/product_families.py` | Agrupamento em famílias (TF-IDF) |
+| `radar_viral/analysis/series.py` | Monta séries temporais por família |
+| `radar_viral/analysis/growth.py` | Indicadores e classificação |
+| `radar_viral/analysis/report.py` | Tabela final (DataFrame) |
 | `scripts/init_db.py` | Cria o banco |
+| `scripts/analyze.py` | Mostra/exporta os indicadores |
 | `scripts/families.py` | Agrupar, listar e corrigir famílias |
 | `scripts/import_csv.py` | Importa um CSV padrão |
 | `scripts/import_google_trends.py` | Importa um export do Google Trends |

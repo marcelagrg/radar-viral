@@ -143,5 +143,8 @@ def test_banco_antigo_e_detectado(tmp_path):
     old = MetaData()
     Table("observations", old, Column("id", Integer, primary_key=True))
     old.create_all(eng)
-    with pytest.raises(SchemaOutdatedError, match="observations.term"):
-        init_db(eng)
+    try:
+        with pytest.raises(SchemaOutdatedError, match="observations.term"):
+            init_db(eng)
+    finally:
+        eng.dispose()  # fecha as conexões; sem isso o Python avisa (ResourceWarning)

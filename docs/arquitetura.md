@@ -20,7 +20,7 @@ radar_viral/
   storage/      schema, conexão, repositório         (Etapa 1)
   collectors/   csv_importer.py (Etapa 2); APIs futuras, um módulo por fonte
   processing/   text_normalizer, product_families     (Etapa 4)
-  analysis/     crescimento, aceleração, persistência (Etapa 5)
+  analysis/     series, growth, report               (Etapa 5)
   scoring/      pontuação com pesos em config/        (Etapa 6)
   ai/           resumos e relatórios                  (Etapa 9)
 dashboard/      app Streamlit                         (Etapa 7)
