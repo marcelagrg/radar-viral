@@ -1,0 +1,5 @@
+# Dependências da Etapa 1 — Fundação do projeto
+# Faixas de versão: aceitam correções, mas evitam mudanças incompatíveis (major).
+SQLAlchemy>=2.0,<3      # acesso ao banco (SQLite agora, PostgreSQL depois)
+python-dotenv>=1.0,<2   # lê variáveis do arquivo .env
+pytest>=8,<9            # testes automatizados

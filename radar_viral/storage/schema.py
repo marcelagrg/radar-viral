@@ -1,0 +1,80 @@
+"""Definição das tabelas (o "esquema" do banco).
+
+Usamos SQLAlchemy Core: descrevemos as tabelas em Python e o SQLAlchemy gera
+o SQL correto para SQLite hoje e para PostgreSQL no futuro.
+
+Princípio central: a tabela observations é "somente acréscimo" (append-only).
+Nunca sobrescrevemos uma coleta antiga; cada coleta gera novas linhas. É isso
+que permite medir crescimento ao longo do tempo.
+"""
+
+from sqlalchemy import (
+    JSON,
+    Boolean,
+    Column,
+    DateTime,
+    Float,
+    ForeignKey,
+    Index,
+    Integer,
+    MetaData,
+    String,
+    Table,
+    Text,
+)
+
+metadata = MetaData()
+
+# Catálogo de fontes de dados (Mercado Livre, Google Trends, ...).
+sources = Table(
+    "sources",
+    metadata,
+    Column("id", Integer, primary_key=True),
+    Column("code", String(50), nullable=False, unique=True),  # ex.: "mercadolivre"
+    Column("name", String(100), nullable=False),
+    Column("base_url", String(255)),
+    Column("created_at", DateTime(timezone=True), nullable=False),
+)
+
+# Cada execução de um coletor. Permite saber quando coletamos, se deu certo
+# e quantos itens vieram — essencial para auditar a qualidade dos dados.
+collection_runs = Table(
+    "collection_runs",
+    metadata,
+    Column("id", Integer, primary_key=True),
+    Column("source_id", Integer, ForeignKey("sources.id"), nullable=False),
+    Column("country", String(2), nullable=False),
+    Column("started_at", DateTime(timezone=True), nullable=False),
+    Column("finished_at", DateTime(timezone=True)),
+    Column("status", String(20), nullable=False),  # running | success | partial | failed
+    Column("items_collected", Integer, nullable=False, default=0),
+    Column("error_message", Text),
+)
+
+# O histórico propriamente dito: uma linha por item por coleta.
+observations = Table(
+    "observations",
+    metadata,
+    Column("id", Integer, primary_key=True),
+    Column("run_id", Integer, ForeignKey("collection_runs.id"), nullable=False),
+    Column("source_id", Integer, ForeignKey("sources.id"), nullable=False),
+    Column("collected_at", DateTime(timezone=True), nullable=False),
+    Column("country", String(2), nullable=False),
+    Column("term", String(500), nullable=False),
+    Column("external_id", String(100)),
+    Column("category_id", String(50)),
+    Column("category_name", String(200)),
+    Column("rank_position", Integer),
+    Column("search_volume", Float),
+    Column("popularity_value", Float),
+    Column("popularity_metric", String(50)),
+    Column("price", Float),
+    Column("currency", String(3)),
+    Column("url", String(1000)),
+    Column("is_simulated", Boolean, nullable=False, default=False),
+    Column("raw_payload", JSON),  # resposta original da fonte, para reprocessar depois
+    # Índices aceleram as consultas mais comuns: histórico de um termo e
+    # tudo que uma fonte coletou num período.
+    Index("ix_obs_term_collected", "term", "collected_at"),
+    Index("ix_obs_source_collected", "source_id", "collected_at"),
+)

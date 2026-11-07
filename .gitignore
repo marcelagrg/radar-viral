@@ -1,0 +1,13 @@
+# Ambiente virtual
+.venv/
+# Segredos
+.env
+# Banco de dados local e dados coletados
+data/*.db
+data/*.db-journal
+# Cache do Python e do pytest
+__pycache__/
+*.pyc
+.pytest_cache/
+# VS Code (configurações pessoais)
+.vscode/
