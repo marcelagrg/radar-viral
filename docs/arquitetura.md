@@ -21,10 +21,10 @@ radar_viral/
   collectors/   csv_importer.py (Etapa 2); APIs futuras, um módulo por fonte
   processing/   text_normalizer, product_families     (Etapa 4)
   analysis/     series, growth, report               (Etapa 5)
-  scoring/      pontuação com pesos em config/        (Etapa 6)
+  scoring/      config + scorer                       (Etapa 6)
   ai/           resumos e relatórios                  (Etapa 9)
 dashboard/      app Streamlit                         (Etapa 7)
-config/         scoring_weights.yaml                  (Etapa 6)
+config/         pontuacao.toml (TOML: lido sem dependência extra)  (Etapa 6)
 scripts/  tests/  docs/  data/
 ```
 

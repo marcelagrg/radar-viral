@@ -1,0 +1,52 @@
+# ============================================================================
+# Configuração da pontuação de potencial de tendência (Etapa 6)
+# Edite à vontade; rode  python scripts\score.py  para ver o efeito.
+# Explicação completa: docs/pontuacao.md
+# ============================================================================
+
+[geral]
+# Janela (em dias) usada nos indicadores: 7, 14, 30 ou 90.
+janela_principal = 90
+
+# O que fazer com critérios SEM DADOS (ex.: concorrência, ainda sem fonte):
+#   "neutro"       -> contam como valor_neutro (conservador: sem evidência,
+#                     a nota não sobe nem desce; pontuações extremas exigem
+#                     evidências em muitos critérios)
+#   "renormalizar" -> são ignorados e os pesos restantes são reescalados
+#                     (a nota reflete só o que se sabe, mas pode exagerar)
+criterios_ausentes = "neutro"
+valor_neutro = 0.5
+
+# Pesos = importância relativa de cada critério. Não precisam somar 100;
+# o sistema divide pela soma. Peso 0 desliga o critério.
+[pesos]
+velocidade = 25           # crescimento e ritmo de alta das buscas
+aceleracao = 15           # o ritmo está aumentando?
+persistencia = 15         # crescimento contínuo e perto do pico (não é pico passageiro)
+multiplataforma = 10      # cresce em mais de uma fonte?            (precisa de 2+ fontes)
+engajamento = 10          # visualizações/engajamento em redes      (sem fonte ainda)
+intencao_compra = 10      # sinais de compra (marketplaces)          (sem fonte ainda)
+concorrencia = 5          # pouca concorrência = melhor              (sem fonte ainda)
+sazonalidade = 5          # crescimento NÃO explicado por sazonalidade (precisa de 2 anos)
+potencial_comercial = 5   # preço/margem                             (sem fonte ainda)
+
+# Tetos: pontuação MÁXIMA para situações que não devem parecer promissoras.
+# pico_passageiro: subiu, mas já caiu 40%+ desde o pico (ver docs/analise.md).
+# Sem o teto, em janelas curtas a média alta faz um pico que já passou
+# parecer tendência. 40 fica abaixo do neutro (50). 100 desliga o teto.
+[tetos]
+pico_passageiro = 40
+
+# Como converter cada indicador numa nota de 0 a 1 (escala linear):
+# valor <= min -> 0 ; valor >= max -> 1 ; no meio, proporcional.
+[normalizacao.crescimento_pct]
+min = -50.0
+max = 100.0
+
+[normalizacao.velocidade_pct_semana]
+min = -10.0
+max = 20.0
+
+[normalizacao.aceleracao_pp]
+min = -10.0
+max = 10.0

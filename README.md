@@ -3,7 +3,9 @@
 Plataforma para identificar produtos e tendências **emergentes** (crescimento
 acelerado com potencial de expansão), começando pelo mercado brasileiro.
 
-> Status: **Etapa 5 — Indicadores de crescimento** concluída.
+> Status: **Etapa 6 — Pontuação de potencial** concluída.
+
+Requer **Python 3.11+** (`python --version`).
 
 ## Instalação (Windows / PowerShell, na pasta do projeto)
 
@@ -46,7 +48,15 @@ python scripts\analyze.py --detalhe
 python scripts\analyze.py --janela 30 --csv data\indicadores.csv
 ```
 
-Fórmulas, regras e limitações: `docs/analise.md`. Para testar com dados **simulados**:
+Fórmulas, regras e limitações: `docs/analise.md`.
+
+## Pontuação de potencial (0–100)
+
+```powershell
+python scripts\score.py --detalhe
+```
+
+Pesos em `config/pontuacao.toml`; explicação em `docs/pontuacao.md`. Para testar com dados **simulados**:
 
 ```powershell
 python scripts\import_csv.py tests\fixtures\exemplo_simulado.csv --fonte teste_manual --simulado
@@ -69,7 +79,11 @@ python scripts\import_csv.py tests\fixtures\exemplo_simulado.csv --fonte teste_m
 | `radar_viral/analysis/series.py` | Monta séries temporais por família |
 | `radar_viral/analysis/growth.py` | Indicadores e classificação |
 | `radar_viral/analysis/report.py` | Tabela final (DataFrame) |
+| `radar_viral/scoring/config.py` | Lê e valida `config/pontuacao.toml` |
+| `radar_viral/scoring/scorer.py` | Critérios, pesos, confiança e ranking |
+| `config/pontuacao.toml` | Pesos e parâmetros da pontuação (editável) |
 | `scripts/init_db.py` | Cria o banco |
+| `scripts/score.py` | Ranking de potencial |
 | `scripts/analyze.py` | Mostra/exporta os indicadores |
 | `scripts/families.py` | Agrupar, listar e corrigir famílias |
 | `scripts/import_csv.py` | Importa um CSV padrão |
