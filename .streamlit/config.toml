@@ -1,0 +1,13 @@
+# Configuração do Streamlit (lida automaticamente ao rodar da raiz do projeto).
+#
+# Cor principal azul em vez do vermelho padrão: vermelho sugere "alerta", e
+# uma barra de pontuação não é um alerta. Definida separadamente para o modo
+# claro e o escuro: usar só [theme] desligaria o modo escuro automático.
+[theme.light]
+primaryColor = "#2a78d6"
+
+[theme.dark]
+primaryColor = "#3987e5"
+
+[browser]
+gatherUsageStats = false

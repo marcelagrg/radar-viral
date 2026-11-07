@@ -3,7 +3,7 @@
 Plataforma para identificar produtos e tendências **emergentes** (crescimento
 acelerado com potencial de expansão), começando pelo mercado brasileiro.
 
-> Status: **Etapa 6 — Pontuação de potencial** concluída.
+> Status: **Etapa 7 — Painel (Streamlit)** concluída.
 
 Requer **Python 3.11+** (`python --version`).
 
@@ -56,7 +56,15 @@ Fórmulas, regras e limitações: `docs/analise.md`.
 python scripts\score.py --detalhe
 ```
 
-Pesos em `config/pontuacao.toml`; explicação em `docs/pontuacao.md`. Para testar com dados **simulados**:
+Pesos em `config/pontuacao.toml`; explicação em `docs/pontuacao.md`.
+
+## Painel
+
+```powershell
+streamlit run dashboard\app.py
+```
+
+Abre no navegador em http://localhost:8501. Detalhes: `docs/painel.md`. Para testar com dados **simulados**:
 
 ```powershell
 python scripts\import_csv.py tests\fixtures\exemplo_simulado.csv --fonte teste_manual --simulado
@@ -82,6 +90,9 @@ python scripts\import_csv.py tests\fixtures\exemplo_simulado.csv --fonte teste_m
 | `radar_viral/scoring/config.py` | Lê e valida `config/pontuacao.toml` |
 | `radar_viral/scoring/scorer.py` | Critérios, pesos, confiança e ranking |
 | `config/pontuacao.toml` | Pesos e parâmetros da pontuação (editável) |
+| `radar_viral/ui/data.py` | Prepara os dados do painel (testável sem navegador) |
+| `dashboard/app.py` | Painel visual (Streamlit) |
+| `.streamlit/config.toml` | Tema do painel |
 | `scripts/init_db.py` | Cria o banco |
 | `scripts/score.py` | Ranking de potencial |
 | `scripts/analyze.py` | Mostra/exporta os indicadores |

@@ -23,7 +23,7 @@ radar_viral/
   analysis/     series, growth, report               (Etapa 5)
   scoring/      config + scorer                       (Etapa 6)
   ai/           resumos e relatórios                  (Etapa 9)
-dashboard/      app Streamlit                         (Etapa 7)
+dashboard/      app.py (Streamlit) + radar_viral/ui/data.py  (Etapa 7)
 config/         pontuacao.toml (TOML: lido sem dependência extra)  (Etapa 6)
 scripts/  tests/  docs/  data/
 ```

@@ -99,6 +99,13 @@ def find_successful_import(engine: Engine, file_sha256: str) -> dict[str, Any] |
     return dict(row._mapping) if row else None
 
 
+def last_successful_run_at(engine: Engine) -> datetime | None:
+    """Quando terminou a coleta/importação bem-sucedida mais recente."""
+    query = select(collection_runs.c.finished_at).where(collection_runs.c.status == "success")
+    with engine.connect() as conn:
+        return conn.execute(query.order_by(collection_runs.c.finished_at.desc())).scalar()
+
+
 def add_observations(engine: Engine, run_id: int, items: Iterable[ObservationIn]) -> int:
     """Grava observações de uma coleta. Tudo ou nada: se uma falhar, nenhuma é gravada."""
     items = list(items)

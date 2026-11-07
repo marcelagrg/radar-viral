@@ -156,6 +156,11 @@ def score_group(family: str, country: str, series: list[Series], cfg: ScoringCon
 
 def score_all(engine: Engine, cfg: ScoringConfig, include_simulated: bool = False) -> list[ScoreResult]:
     series = latest_series_per_family(build_series(load_observations(engine, include_simulated)))
+    return score_series(series, cfg)
+
+
+def score_series(series: list[Series], cfg: ScoringConfig) -> list[ScoreResult]:
+    """Pontua séries já carregadas (uma por família/fonte/país), maiores primeiro."""
     groups: dict[tuple[str, str], list[Series]] = {}
     for s in series:
         groups.setdefault((s.family_name, s.country), []).append(s)

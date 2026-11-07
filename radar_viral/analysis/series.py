@@ -54,6 +54,8 @@ def load_observations(engine: Engine, include_simulated: bool = False) -> pd.Dat
             observations.c.popularity_value,
             observations.c.popularity_metric,
             observations.c.search_volume,
+            observations.c.category_name,
+            observations.c.url,
             sources.c.code.label("source_code"),
             term_families.c.family_id,
             product_families.c.name.label("family_name"),
