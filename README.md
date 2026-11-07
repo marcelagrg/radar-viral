@@ -3,7 +3,7 @@
 Plataforma para identificar produtos e tendências **emergentes** (crescimento
 acelerado com potencial de expansão), começando pelo mercado brasileiro.
 
-> Status: **Etapa 2 — Importação de CSV** concluída (sobre a Etapa 1 — Fundação).
+> Status: **Etapa 3 — Google Trends (CSV)** concluída.
 
 ## Instalação (Windows / PowerShell, na pasta do projeto)
 
@@ -22,7 +22,13 @@ python -m pytest -v
 python scripts\import_csv.py caminho\dados.csv --fonte google_trends_manual
 ```
 
-Formato do arquivo: `docs/formato_csv.md`. Para testar com dados **simulados**:
+Google Trends (arquivo baixado do site, sem renomear) — ver `docs/google_trends.md`:
+
+```powershell
+python scripts\import_google_trends.py C:\Users\voce\Downloads\time_series_BR_....csv
+```
+
+Formato padrão: `docs/formato_csv.md`. Para testar com dados **simulados**:
 
 ```powershell
 python scripts\import_csv.py tests\fixtures\exemplo_simulado.csv --fonte teste_manual --simulado
@@ -37,9 +43,12 @@ python scripts\import_csv.py tests\fixtures\exemplo_simulado.csv --fonte teste_m
 | `radar_viral/storage/schema.py` | Tabelas do banco |
 | `radar_viral/storage/database.py` | Conexão (engine) e criação das tabelas |
 | `radar_viral/storage/repository.py` | Funções de leitura/escrita |
-| `radar_viral/collectors/csv_importer.py` | Lê, valida e grava arquivos CSV |
+| `radar_viral/collectors/file_import.py` | Partes comuns a toda importação (hash, duplicação, gravação) |
+| `radar_viral/collectors/csv_importer.py` | CSV no formato padrão |
+| `radar_viral/collectors/google_trends_csv.py` | CSV exportado do Google Trends |
 | `scripts/init_db.py` | Cria o banco |
-| `scripts/import_csv.py` | Importa um CSV pela linha de comando |
+| `scripts/import_csv.py` | Importa um CSV padrão |
+| `scripts/import_google_trends.py` | Importa um export do Google Trends |
 | `docs/formato_csv.md` | Formato e regras do CSV |
 | `tests/` | Testes automatizados (usam dados **simulados**) |
 | `docs/arquitetura.md` | Visão de arquitetura e roadmap |

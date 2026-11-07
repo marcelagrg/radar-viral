@@ -10,17 +10,23 @@ O formato está documentado em docs/formato_csv.md.
 from __future__ import annotations
 
 import csv
-import hashlib
 import io
-import re
-from dataclasses import dataclass
 from datetime import date, datetime
 from pathlib import Path
 
 from sqlalchemy import Engine
 
+from radar_viral.collectors.file_import import (  # noqa: F401  (reexportados)
+    CsvImportError,
+    CsvValidationError,
+    DuplicateImportError,
+    ImportResult,
+    decode_bytes,
+    read_new_file,
+    save_import,
+    validate_source_code,
+)
 from radar_viral.models import ObservationIn
-from radar_viral.storage import repository as repo
 
 REQUIRED_COLUMNS = {"data_referencia", "termo"}
 
@@ -39,39 +45,6 @@ OPTIONAL_COLUMNS = {
 }
 INT_FIELDS = {"rank_position"}
 FLOAT_FIELDS = {"search_volume", "popularity_value", "price"}
-
-SOURCE_CODE_PATTERN = re.compile(r"^[a-z0-9_]{2,50}$")
-MAX_FILE_BYTES = 20 * 1024 * 1024  # 20 MB: protege contra abrir um arquivo errado gigante
-MAX_ERRORS_SHOWN = 20
-
-
-class CsvImportError(Exception):
-    """Erro geral de importação."""
-
-
-class DuplicateImportError(CsvImportError):
-    """O mesmo arquivo (mesmo conteúdo) já foi importado com sucesso."""
-
-
-class CsvValidationError(CsvImportError):
-    """Uma ou mais linhas são inválidas. Nada foi gravado."""
-
-    def __init__(self, errors: list[str]):
-        self.errors = errors
-        shown = errors[:MAX_ERRORS_SHOWN]
-        extra = len(errors) - len(shown)
-        msg = f"{len(errors)} erro(s) no arquivo; nada foi importado:\n  - " + "\n  - ".join(shown)
-        if extra:
-            msg += f"\n  ... e mais {extra} erro(s)."
-        super().__init__(msg)
-
-
-@dataclass
-class ImportResult:
-    run_id: int
-    rows_imported: int
-    source_code: str
-    file_sha256: str
 
 
 # ---------------------------------------------------------------- conversões
@@ -111,18 +84,6 @@ def parse_int(text: str) -> int | None:
     if not text.isdigit():
         raise ValueError(f"inteiro inválido {text!r}")
     return int(text)
-
-
-def decode_bytes(data: bytes) -> str:
-    """UTF-8 (com ou sem BOM) primeiro; senão cp1252, comum no Excel do Windows.
-
-    O BOM é um marcador invisível que o Excel coloca no início de arquivos
-    "CSV UTF-8". O codec 'utf-8-sig' o remove automaticamente.
-    """
-    try:
-        return data.decode("utf-8-sig")
-    except UnicodeDecodeError:
-        return data.decode("cp1252")
 
 
 def detect_delimiter(text: str) -> str:
@@ -208,38 +169,20 @@ def import_csv(
     decimal_sep: str = ",",
     simulated: bool = False,
 ) -> ImportResult:
-    """Valida e grava um CSV como uma nova coleta (collection_run)."""
+    """Valida e grava um CSV no formato padrão como uma nova coleta."""
     path = Path(path)
-    if not SOURCE_CODE_PATTERN.match(source_code):
-        raise CsvImportError(
-            f"código de fonte inválido {source_code!r}: use 2–50 letras minúsculas, números ou _"
-        )
+    validate_source_code(source_code)
     if decimal_sep not in {",", "."}:
         raise CsvImportError("decimal_sep deve ser ',' ou '.'")
-    if not path.is_file():
-        raise CsvImportError(f"arquivo não encontrado: {path}")
-    if path.stat().st_size > MAX_FILE_BYTES:
-        raise CsvImportError(f"arquivo maior que {MAX_FILE_BYTES // (1024 * 1024)} MB")
-
-    data = path.read_bytes()
-    sha256 = hashlib.sha256(data).hexdigest()
-    previous = repo.find_successful_import(engine, sha256)
-    if previous:
-        raise DuplicateImportError(
-            f"este conteúdo já foi importado na coleta #{previous['id']} "
-            f"(arquivo {previous['source_file']!r}); nada foi gravado"
-        )
-
+    data, sha256 = read_new_file(engine, path)
     # Valida TUDO antes de abrir a coleta no banco.
     items = read_observations(decode_bytes(data), country, decimal_sep, simulated)
-
-    source_id = repo.get_or_create_source(engine, source_code, source_name or source_code)
-    run_id = repo.start_run(engine, source_id, country, source_file=path.name, file_sha256=sha256)
-    try:
-        count = repo.add_observations(engine, run_id, items)
-    except Exception as exc:
-        # Registra a falha para auditoria e repassa o erro original.
-        repo.finish_run(engine, run_id, "failed", error_message=str(exc)[:1000])
-        raise
-    repo.finish_run(engine, run_id, "success")
-    return ImportResult(run_id=run_id, rows_imported=count, source_code=source_code, file_sha256=sha256)
+    return save_import(
+        engine,
+        items,
+        file_name=path.name,
+        file_sha256=sha256,
+        source_code=source_code,
+        source_name=source_name or source_code,
+        country=country,
+    )

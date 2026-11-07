@@ -46,3 +46,4 @@ scripts/  tests/  docs/  data/
 ## Fontes
 - Mercado Livre: descartado (API exige OAuth; documentação e API recusaram acesso a partir da nuvem).
 - Etapa 2: importação manual de CSV, sem dependência de API ou scraping.
+- Etapa 3: conversor do export do Google Trends (`docs/google_trends.md`).
