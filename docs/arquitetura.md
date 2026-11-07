@@ -19,7 +19,7 @@ radar_viral/
   config.py, models.py
   storage/      schema, conexão, repositório         (Etapa 1)
   collectors/   csv_importer.py (Etapa 2); APIs futuras, um módulo por fonte
-  processing/   limpeza de texto, famílias           (Etapa 4)
+  processing/   text_normalizer, product_families     (Etapa 4)
   analysis/     crescimento, aceleração, persistência (Etapa 5)
   scoring/      pontuação com pesos em config/        (Etapa 6)
   ai/           resumos e relatórios                  (Etapa 9)
@@ -35,6 +35,7 @@ scripts/  tests/  docs/  data/
 - `observations` — uma linha por item por coleta; nunca é sobrescrita.
   Guarda `raw_payload` (resposta original) para reprocessar no futuro.
   `reference_date` (Etapa 2) = data a que o valor se refere; `collected_at` = quando entrou no banco.
+- `product_families` / `term_families` (Etapa 4): família de cada termo; `method=manual` marca correções suas.
 - `collection_runs.file_sha256` (Etapa 2) impede importar o mesmo arquivo duas vezes.
 
 ## Decisões

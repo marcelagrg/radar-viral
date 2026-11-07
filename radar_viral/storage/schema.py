@@ -88,3 +88,29 @@ observations = Table(
     Index("ix_obs_term_reference", "term", "reference_date"),
     Index("ix_obs_source_collected", "source_id", "collected_at"),
 )
+
+
+# ----------------------------------------------------------- Etapa 4
+# Família de produtos: agrupa termos diferentes que representam o mesmo produto
+# ("mini aspirador portátil", "mini aspiradores portáteis"...).
+product_families = Table(
+    "product_families",
+    metadata,
+    Column("id", Integer, primary_key=True),
+    Column("name", String(200), nullable=False, unique=True),
+    Column("created_by", String(10), nullable=False),  # auto | manual
+    Column("created_at", DateTime(timezone=True), nullable=False),
+)
+
+# A qual família cada termo pertence (um termo = uma família).
+# method="manual" significa correção feita por você: o agrupamento automático
+# NUNCA altera essas linhas.
+term_families = Table(
+    "term_families",
+    metadata,
+    Column("term", String(500), primary_key=True),
+    Column("family_id", Integer, ForeignKey("product_families.id"), nullable=False, index=True),
+    Column("method", String(10), nullable=False),  # auto | manual
+    Column("similarity", Float),  # similaridade média com a família no momento da atribuição
+    Column("assigned_at", DateTime(timezone=True), nullable=False),
+)

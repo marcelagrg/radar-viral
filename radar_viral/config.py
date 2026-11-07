@@ -26,6 +26,7 @@ class Settings:
     database_url: str
     default_country: str
     log_level: str
+    family_similarity_threshold: float = 0.45
 
 
 def _resolve_sqlite_path(url: str) -> str:
@@ -57,6 +58,14 @@ def load_settings(env_file: Path | None = None) -> Settings:
         raise ValueError(
             f"DEFAULT_COUNTRY inválido: {country!r}. Use um código de 2 letras, ex.: BR."
         )
+    raw_threshold = os.getenv("FAMILY_SIMILARITY_THRESHOLD", "0.45").strip()
+    try:
+        threshold = float(raw_threshold)
+    except ValueError:
+        raise ValueError(f"FAMILY_SIMILARITY_THRESHOLD inválido: {raw_threshold!r}") from None
+    if not 0 < threshold < 1:
+        raise ValueError("FAMILY_SIMILARITY_THRESHOLD deve estar entre 0 e 1 (exclusive)")
+
     if log_level not in VALID_LOG_LEVELS:
         raise ValueError(f"LOG_LEVEL inválido: {log_level!r}. Opções: {sorted(VALID_LOG_LEVELS)}")
 
@@ -64,4 +73,5 @@ def load_settings(env_file: Path | None = None) -> Settings:
         database_url=_resolve_sqlite_path(database_url),
         default_country=country,
         log_level=log_level,
+        family_similarity_threshold=threshold,
     )

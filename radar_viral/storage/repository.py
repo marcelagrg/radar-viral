@@ -11,10 +11,16 @@ from dataclasses import asdict
 from datetime import datetime, timezone
 from typing import Any
 
-from sqlalchemy import Engine, insert, select, update
+from sqlalchemy import Engine, delete, insert, select, update
 
 from radar_viral.models import ObservationIn
-from radar_viral.storage.schema import collection_runs, observations, sources
+from radar_viral.storage.schema import (
+    collection_runs,
+    observations,
+    product_families,
+    sources,
+    term_families,
+)
 
 VALID_FINAL_STATUS = {"success", "partial", "failed"}
 
@@ -129,3 +135,119 @@ def get_term_history(engine: Engine, term: str, include_simulated: bool = False)
     )
     with engine.connect() as conn:
         return [dict(row._mapping) for row in conn.execute(query)]
+
+
+# ----------------------------------------------------------- famílias (Etapa 4)
+
+def list_distinct_terms(engine: Engine, include_simulated: bool = False) -> list[str]:
+    query = select(observations.c.term).distinct()
+    if not include_simulated:
+        query = query.where(observations.c.is_simulated.is_(False))
+    with engine.connect() as conn:
+        return sorted(conn.execute(query).scalars())
+
+
+def get_term_assignments(engine: Engine) -> dict[str, int]:
+    with engine.connect() as conn:
+        rows = conn.execute(select(term_families.c.term, term_families.c.family_id))
+        return {r.term: r.family_id for r in rows}
+
+
+def _unique_family_name(conn, name: str) -> str:
+    candidate, n = name, 2
+    while conn.execute(select(product_families.c.id).where(product_families.c.name == candidate)).first():
+        candidate, n = f"{name} ({n})", n + 1
+    return candidate
+
+
+def create_family(engine: Engine, name: str, created_by: str) -> int:
+    """Cria uma família. Se o nome já existir, acrescenta ' (2)', ' (3)'..."""
+    name = (name or "").strip()
+    if not name:
+        raise ValueError("nome da família não pode ser vazio")
+    with engine.begin() as conn:
+        result = conn.execute(
+            insert(product_families).values(
+                name=_unique_family_name(conn, name), created_by=created_by, created_at=utc_now()
+            )
+        )
+        return result.inserted_primary_key[0]
+
+
+def get_family_id(engine: Engine, name: str) -> int | None:
+    with engine.connect() as conn:
+        return conn.execute(
+            select(product_families.c.id).where(product_families.c.name == name.strip())
+        ).scalar()
+
+
+def assign_term(engine: Engine, term: str, family_id: int, method: str, similarity: float | None = None) -> None:
+    """Coloca o termo na família (substitui a atribuição anterior, se houver)."""
+    if method not in {"auto", "manual"}:
+        raise ValueError("method deve ser 'auto' ou 'manual'")
+    with engine.begin() as conn:
+        conn.execute(delete(term_families).where(term_families.c.term == term))
+        conn.execute(
+            insert(term_families).values(
+                term=term, family_id=family_id, method=method, similarity=similarity, assigned_at=utc_now()
+            )
+        )
+
+
+def delete_auto_assignments(engine: Engine) -> int:
+    """Apaga atribuições automáticas, EXCETO nas famílias que você corrigiu.
+
+    Uma correção manual ("este termo pertence a esta família") só faz sentido
+    junto com os outros membros da família; por isso a família inteira fica
+    congelada. Sem isso, um --refazer esvaziaria a família e criaria uma cópia.
+    """
+    corrected = select(term_families.c.family_id).where(term_families.c.method == "manual")
+    with engine.begin() as conn:
+        result = conn.execute(
+            delete(term_families).where(
+                term_families.c.method == "auto", term_families.c.family_id.not_in(corrected)
+            )
+        )
+    delete_empty_families(engine)
+    return result.rowcount
+
+
+def delete_empty_families(engine: Engine) -> int:
+    used = select(term_families.c.family_id)
+    with engine.begin() as conn:
+        result = conn.execute(delete(product_families).where(product_families.c.id.not_in(used)))
+    return result.rowcount
+
+
+def rename_family(engine: Engine, old_name: str, new_name: str) -> None:
+    new_name = (new_name or "").strip()
+    if not new_name:
+        raise ValueError("novo nome não pode ser vazio")
+    family_id = get_family_id(engine, old_name)
+    if family_id is None:
+        raise ValueError(f"família não encontrada: {old_name!r}")
+    if get_family_id(engine, new_name) is not None:
+        raise ValueError(f"já existe uma família chamada {new_name!r}")
+    with engine.begin() as conn:
+        conn.execute(update(product_families).where(product_families.c.id == family_id).values(name=new_name))
+
+
+def list_families(engine: Engine) -> list[dict[str, Any]]:
+    """Famílias com seus termos, maiores primeiro."""
+    query = (
+        select(
+            product_families.c.id,
+            product_families.c.name,
+            term_families.c.term,
+            term_families.c.method,
+            term_families.c.similarity,
+        )
+        .join(term_families, term_families.c.family_id == product_families.c.id)
+        .order_by(product_families.c.name, term_families.c.term)
+    )
+    families: dict[int, dict[str, Any]] = {}
+    with engine.connect() as conn:
+        for r in conn.execute(query):
+            fam = families.setdefault(r.id, {"id": r.id, "name": r.name, "terms": []})
+            fam["terms"].append({"term": r.term, "method": r.method, "similarity": r.similarity})
+    return sorted(families.values(), key=lambda f: (-len(f["terms"]), f["name"]))

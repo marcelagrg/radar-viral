@@ -3,7 +3,7 @@
 Plataforma para identificar produtos e tendências **emergentes** (crescimento
 acelerado com potencial de expansão), começando pelo mercado brasileiro.
 
-> Status: **Etapa 3 — Google Trends (CSV)** concluída.
+> Status: **Etapa 4 — Famílias de produtos** concluída.
 
 ## Instalação (Windows / PowerShell, na pasta do projeto)
 
@@ -28,7 +28,16 @@ Google Trends (arquivo baixado do site, sem renomear) — ver `docs/google_trend
 python scripts\import_google_trends.py C:\Users\voce\Downloads\time_series_BR_....csv
 ```
 
-Formato padrão: `docs/formato_csv.md`. Para testar com dados **simulados**:
+Formato padrão: `docs/formato_csv.md`.
+
+## Famílias de produtos
+
+```powershell
+python scripts\families.py agrupar
+python scripts\families.py listar
+```
+
+Detalhes e limitações: `docs/familias.md`. Para testar com dados **simulados**:
 
 ```powershell
 python scripts\import_csv.py tests\fixtures\exemplo_simulado.csv --fonte teste_manual --simulado
@@ -46,7 +55,10 @@ python scripts\import_csv.py tests\fixtures\exemplo_simulado.csv --fonte teste_m
 | `radar_viral/collectors/file_import.py` | Partes comuns a toda importação (hash, duplicação, gravação) |
 | `radar_viral/collectors/csv_importer.py` | CSV no formato padrão |
 | `radar_viral/collectors/google_trends_csv.py` | CSV exportado do Google Trends |
+| `radar_viral/processing/text_normalizer.py` | Normalização de texto (regras) |
+| `radar_viral/processing/product_families.py` | Agrupamento em famílias (TF-IDF) |
 | `scripts/init_db.py` | Cria o banco |
+| `scripts/families.py` | Agrupar, listar e corrigir famílias |
 | `scripts/import_csv.py` | Importa um CSV padrão |
 | `scripts/import_google_trends.py` | Importa um export do Google Trends |
 | `docs/formato_csv.md` | Formato e regras do CSV |
