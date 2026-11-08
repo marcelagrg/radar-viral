@@ -3,7 +3,7 @@
 Plataforma para identificar produtos e tendências **emergentes** (crescimento
 acelerado com potencial de expansão), começando pelo mercado brasileiro.
 
-> Status: **Etapa 8 — Links de compra** concluída.
+> Status: **Etapa 9 — Importação em lote (rotina semanal)** concluída.
 
 Requer **Python 3.11+** (`python --version`).
 
@@ -17,6 +17,14 @@ Copy-Item .env.example .env
 python scripts\init_db.py
 python -m pytest -v
 ```
+
+## Rotina semanal
+
+```powershell
+python scripts\import_pasta.py C:\Users\voce\Downloads --mover
+```
+
+Importa todos os exports do Google Trends da pasta e agrupa as famílias. Passo a passo: `docs/rotina_semanal.md`.
 
 ## Importar dados (CSV)
 
@@ -104,7 +112,9 @@ python scripts\import_csv.py tests\fixtures\exemplo_simulado.csv --fonte teste_m
 | `dashboard/app.py` | Painel visual (Streamlit) |
 | `.streamlit/config.toml` | Tema do painel |
 | `radar_viral/marketplaces.py` | Validação de links e links de busca |
+| `radar_viral/collectors/batch.py` | Importação em lote de uma pasta |
 | `scripts/init_db.py` | Cria o banco |
+| `scripts/import_pasta.py` | Rotina semanal: importa a pasta e agrupa |
 | `scripts/links.py` | Adicionar/listar/remover links de compra |
 | `scripts/score.py` | Ranking de potencial |
 | `scripts/analyze.py` | Mostra/exporta os indicadores |

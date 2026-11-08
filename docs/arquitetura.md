@@ -18,7 +18,7 @@ Fontes externas ─► collectors/ ─► ObservationIn ─► storage/ (histór
 radar_viral/
   config.py, models.py
   storage/      schema, conexão, repositório         (Etapa 1)
-  collectors/   csv_importer.py (Etapa 2); APIs futuras, um módulo por fonte
+  collectors/   csv_importer, google_trends_csv, batch (Etapas 2, 3, 9)
   processing/   text_normalizer, product_families     (Etapa 4)
   analysis/     series, growth, report               (Etapa 5)
   scoring/      config + scorer                       (Etapa 6)

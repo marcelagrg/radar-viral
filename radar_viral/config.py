@@ -27,6 +27,7 @@ class Settings:
     default_country: str
     log_level: str
     family_similarity_threshold: float = 0.45
+    exports_dir: Path | None = None  # pasta padrão da importação em lote (Etapa 9)
 
 
 def _resolve_sqlite_path(url: str) -> str:
@@ -74,4 +75,5 @@ def load_settings(env_file: Path | None = None) -> Settings:
         default_country=country,
         log_level=log_level,
         family_similarity_threshold=threshold,
+        exports_dir=Path(os.getenv("EXPORTS_DIR").strip()) if (os.getenv("EXPORTS_DIR") or "").strip() else None,
     )
