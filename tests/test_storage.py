@@ -16,7 +16,7 @@ def fake(term="mini aspirador portátil [SIMULADO]", **kwargs):
 
 
 def test_tabelas_criadas(engine):
-    assert set(inspect(engine).get_table_names()) == {"sources", "collection_runs", "observations", "product_families", "term_families"}
+    assert set(inspect(engine).get_table_names()) == {"sources", "collection_runs", "observations", "product_families", "term_families", "product_links"}
 
 
 def test_fonte_nao_duplica(engine):

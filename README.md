@@ -3,7 +3,7 @@
 Plataforma para identificar produtos e tendências **emergentes** (crescimento
 acelerado com potencial de expansão), começando pelo mercado brasileiro.
 
-> Status: **Etapa 7 — Painel (Streamlit)** concluída.
+> Status: **Etapa 8 — Links de compra** concluída.
 
 Requer **Python 3.11+** (`python --version`).
 
@@ -64,7 +64,17 @@ Pesos em `config/pontuacao.toml`; explicação em `docs/pontuacao.md`.
 streamlit run dashboard\app.py
 ```
 
-Abre no navegador em http://localhost:8501. Detalhes: `docs/painel.md`. Para testar com dados **simulados**:
+Abre no navegador em http://localhost:8501. Detalhes: `docs/painel.md`.
+
+## Links de compra (Amazon, Shopee, Mercado Livre)
+
+Pelo painel (Detalhes → Onde comprar) ou:
+
+```powershell
+python scripts\links.py adicionar "nome da família" shopee "https://shopee.com.br/..."
+```
+
+Regras: `docs/links.md`. Para testar com dados **simulados**:
 
 ```powershell
 python scripts\import_csv.py tests\fixtures\exemplo_simulado.csv --fonte teste_manual --simulado
@@ -93,7 +103,9 @@ python scripts\import_csv.py tests\fixtures\exemplo_simulado.csv --fonte teste_m
 | `radar_viral/ui/data.py` | Prepara os dados do painel (testável sem navegador) |
 | `dashboard/app.py` | Painel visual (Streamlit) |
 | `.streamlit/config.toml` | Tema do painel |
+| `radar_viral/marketplaces.py` | Validação de links e links de busca |
 | `scripts/init_db.py` | Cria o banco |
+| `scripts/links.py` | Adicionar/listar/remover links de compra |
 | `scripts/score.py` | Ranking de potencial |
 | `scripts/analyze.py` | Mostra/exporta os indicadores |
 | `scripts/families.py` | Agrupar, listar e corrigir famílias |

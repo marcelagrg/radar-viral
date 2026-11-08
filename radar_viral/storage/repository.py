@@ -11,13 +11,14 @@ from dataclasses import asdict
 from datetime import datetime, timezone
 from typing import Any
 
-from sqlalchemy import Engine, delete, insert, select, update
+from sqlalchemy import Engine, delete, func, insert, select, update
 
 from radar_viral.models import ObservationIn
 from radar_viral.storage.schema import (
     collection_runs,
     observations,
     product_families,
+    product_links,
     sources,
     term_families,
 )
@@ -204,11 +205,15 @@ def assign_term(engine: Engine, term: str, family_id: int, method: str, similari
 def delete_auto_assignments(engine: Engine) -> int:
     """Apaga atribuições automáticas, EXCETO nas famílias que você corrigiu.
 
+    Famílias com links de compra (Etapa 8) também ficam intactas.
+
     Uma correção manual ("este termo pertence a esta família") só faz sentido
     junto com os outros membros da família; por isso a família inteira fica
     congelada. Sem isso, um --refazer esvaziaria a família e criaria uma cópia.
     """
-    corrected = select(term_families.c.family_id).where(term_families.c.method == "manual")
+    corrected = select(term_families.c.family_id).where(term_families.c.method == "manual").union(
+        select(product_links.c.family_id)  # famílias com links de compra também ficam congeladas
+    )
     with engine.begin() as conn:
         result = conn.execute(
             delete(term_families).where(
@@ -220,7 +225,8 @@ def delete_auto_assignments(engine: Engine) -> int:
 
 
 def delete_empty_families(engine: Engine) -> int:
-    used = select(term_families.c.family_id)
+    """Apaga famílias sem termos — exceto as que têm links de compra."""
+    used = select(term_families.c.family_id).union(select(product_links.c.family_id))
     with engine.begin() as conn:
         result = conn.execute(delete(product_families).where(product_families.c.id.not_in(used)))
     return result.rowcount
@@ -258,3 +264,49 @@ def list_families(engine: Engine) -> list[dict[str, Any]]:
             fam = families.setdefault(r.id, {"id": r.id, "name": r.name, "terms": []})
             fam["terms"].append({"term": r.term, "method": r.method, "similarity": r.similarity})
     return sorted(families.values(), key=lambda f: (-len(f["terms"]), f["name"]))
+
+
+# ----------------------------------------------------------- links (Etapa 8)
+
+def add_link(engine: Engine, family_id: int, marketplace: str, url: str, label: str | None = None) -> int:
+    """Grava um link de compra JÁ VALIDADO (ver marketplaces.validate_link)."""
+    with engine.begin() as conn:
+        if conn.execute(select(product_families.c.id).where(product_families.c.id == family_id)).first() is None:
+            raise ValueError(f"família {family_id} não existe")
+        exists = conn.execute(
+            select(product_links.c.id).where(product_links.c.family_id == family_id, product_links.c.url == url)
+        ).first()
+        if exists:
+            raise ValueError(f"este link já está cadastrado nesta família (link #{exists.id})")
+        result = conn.execute(
+            insert(product_links).values(
+                family_id=family_id, marketplace=marketplace, url=url,
+                label=(label or "").strip() or None, created_at=utc_now(),
+            )
+        )
+        return result.inserted_primary_key[0]
+
+
+def list_links(engine: Engine, family_id: int | None = None) -> list[dict[str, Any]]:
+    query = (
+        select(product_links, product_families.c.name.label("family_name"))
+        .join(product_families, product_families.c.id == product_links.c.family_id)
+        .order_by(product_families.c.name, product_links.c.marketplace, product_links.c.id)
+    )
+    if family_id is not None:
+        query = query.where(product_links.c.family_id == family_id)
+    with engine.connect() as conn:
+        return [dict(r._mapping) for r in conn.execute(query)]
+
+
+def delete_link(engine: Engine, link_id: int) -> None:
+    with engine.begin() as conn:
+        result = conn.execute(delete(product_links).where(product_links.c.id == link_id))
+    if result.rowcount == 0:
+        raise ValueError(f"link #{link_id} não encontrado")
+
+
+def count_links_by_family(engine: Engine) -> dict[int, int]:
+    query = select(product_links.c.family_id, func.count()).group_by(product_links.c.family_id)
+    with engine.connect() as conn:
+        return {fid: n for fid, n in conn.execute(query)}

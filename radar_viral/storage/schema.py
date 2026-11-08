@@ -22,6 +22,7 @@ from sqlalchemy import (
     String,
     Table,
     Text,
+    UniqueConstraint,
 )
 
 metadata = MetaData()
@@ -113,4 +114,21 @@ term_families = Table(
     Column("method", String(10), nullable=False),  # auto | manual
     Column("similarity", Float),  # similaridade média com a família no momento da atribuição
     Column("assigned_at", DateTime(timezone=True), nullable=False),
+)
+
+
+# ----------------------------------------------------------- Etapa 8
+# Links de compra que VOCÊ insere para cada família (Amazon, Shopee,
+# Mercado Livre...). Uma família com links fica protegida: o agrupamento
+# automático (--refazer) não a desfaz.
+product_links = Table(
+    "product_links",
+    metadata,
+    Column("id", Integer, primary_key=True),
+    Column("family_id", Integer, ForeignKey("product_families.id"), nullable=False, index=True),
+    Column("marketplace", String(30), nullable=False),  # amazon | shopee | mercadolivre
+    Column("url", String(1000), nullable=False),
+    Column("label", String(200)),  # descrição opcional, ex.: "kit com 2 unidades"
+    Column("created_at", DateTime(timezone=True), nullable=False),
+    UniqueConstraint("family_id", "url", name="uq_link_family_url"),
 )

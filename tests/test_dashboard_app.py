@@ -69,3 +69,30 @@ def test_painel_com_simulados_mostra_aviso(db_url):
     by_label(at.toggle, "Incluir dados SIMULADOS").set_value(True).run()
     assert not at.exception
     assert any("SIMULADOS" in w.value for w in at.warning)
+
+
+def test_adicionar_link_pelo_painel(db_url):
+    """Preenche o formulário 'Adicionar link de produto' e confere no banco."""
+    from radar_viral.storage import repository as repo
+
+    engine = get_engine(db_url)
+    init_db(engine)
+    import_google_trends(engine, FIX / "google_trends" / "time_series_BR_20251107-0805_20261107-0805.csv")
+    group_terms(engine, threshold=0.45)
+
+    at = run_app()
+    assert any(s.value == "Onde comprar" for s in at.subheader)
+    by_label(at.selectbox, "Marketplace").select("shopee")
+    by_label(at.text_input, "Link do produto (https://...)").input("https://shopee.com.br/produto-teste")
+    by_label(at.button, "Salvar link").click().run()
+    assert not at.exception
+    [link] = repo.list_links(engine)
+    assert link["marketplace"] == "shopee" and link["family_name"] == "playstation"
+
+    # link de outro site é recusado com mensagem, sem quebrar o painel
+    by_label(at.selectbox, "Marketplace").select("amazon")
+    by_label(at.text_input, "Link do produto (https://...)").input("https://shopee.com.br/outro")
+    by_label(at.button, "Salvar link").click().run()
+    assert any("não é do Amazon" in e.value for e in at.error)
+    assert len(repo.list_links(engine)) == 1
+    engine.dispose()

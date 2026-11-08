@@ -35,6 +35,7 @@ scripts/  tests/  docs/  data/
 - `observations` — uma linha por item por coleta; nunca é sobrescrita.
   Guarda `raw_payload` (resposta original) para reprocessar no futuro.
   `reference_date` (Etapa 2) = data a que o valor se refere; `collected_at` = quando entrou no banco.
+- `product_links` (Etapa 8): links de compra por família; famílias com links ficam protegidas.
 - `product_families` / `term_families` (Etapa 4): família de cada termo; `method=manual` marca correções suas.
 - `collection_runs.file_sha256` (Etapa 2) impede importar o mesmo arquivo duas vezes.
 
@@ -48,3 +49,4 @@ scripts/  tests/  docs/  data/
 - Mercado Livre: descartado (API exige OAuth; documentação e API recusaram acesso a partir da nuvem).
 - Etapa 2: importação manual de CSV, sem dependência de API ou scraping.
 - Etapa 3: conversor do export do Google Trends (`docs/google_trends.md`).
+- Etapa 8: Amazon, Shopee e Mercado Livre entram só como links inseridos manualmente (sem coleta de dados).

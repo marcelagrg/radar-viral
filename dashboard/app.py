@@ -13,9 +13,12 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import altair as alt  # noqa: E402
+import pandas as pd  # noqa: E402
 import streamlit as st  # noqa: E402
 
 from radar_viral.config import load_settings  # noqa: E402
+from radar_viral.marketplaces import MARKETPLACES, save_link, search_links  # noqa: E402
+from radar_viral.storage import repository as repo  # noqa: E402
 from radar_viral.scoring.config import ScoringConfigError, load_scoring_config  # noqa: E402
 from radar_viral.storage.database import SchemaOutdatedError, get_engine, init_db  # noqa: E402
 from radar_viral.ui import data as ui  # noqa: E402
@@ -60,6 +63,13 @@ def as_text(df, formats: dict[str, str]):
     return df
 
 
+def link_count(counts: dict[int, int], family_id) -> int:
+    """family_id vem do Pandas: pode ser float (ex.: 3.0) ou NaN quando o termo não tem família."""
+    if family_id is None or pd.isna(family_id):
+        return 0
+    return counts.get(int(family_id), 0)
+
+
 def fmt_pct(v):
     return "—" if v is None or v != v else f"{v:+.1f}%"
 
@@ -91,6 +101,8 @@ def line_chart(df, title: str, y_title: str):
 
 RANKING_COLUMNS = {
     "familia": st.column_config.TextColumn("Família"),
+    "familia_id": None,  # None = coluna oculta
+    "links": st.column_config.NumberColumn("Links de compra", format="%d"),
     "pais": st.column_config.TextColumn("País", width="small"),
     "pontuacao": st.column_config.ProgressColumn("Pontuação", min_value=0, max_value=100, format="%.1f"),
     "confianca": st.column_config.ProgressColumn("Confiança", min_value=0, max_value=100, format="%.0f"),
@@ -123,7 +135,7 @@ def ranking_table(df, key: str):
         st.caption(f"Selecionado: **{chosen['familia']}** — veja a aba **Detalhes**.")
 
 
-def detail_page(d: ui.DashboardData, ranking, cfg):
+def detail_page(d: ui.DashboardData, ranking, cfg, engine):
     options = [f"{r.familia} [{r.pais}]" for r in ranking.itertuples()]
     if not options:
         st.info("Nenhuma família com os filtros atuais.")
@@ -141,6 +153,9 @@ def detail_page(d: ui.DashboardData, ranking, cfg):
     # Texto longo não cabe num st.metric (fica cortado); vai numa linha própria.
     st.markdown(f"**Classificação ({d.main_window} dias):** {result.classification}")
     st.caption(DISCLAIMER)
+
+    family_id = next((s.family_id for s in series_list if s.family_id is not None), None)
+    where_to_buy(engine, family, family_id)
 
     for s in series_list:
         st.subheader(f"Evolução — {s.source_code}")
@@ -200,13 +215,54 @@ def detail_page(d: ui.DashboardData, ranking, cfg):
                                 width="stretch")
 
 
+def where_to_buy(engine, family: str, family_id: int | None):
+    """Links de compra que você cadastrou + buscas prontas nos marketplaces."""
+    st.subheader("Onde comprar")
+    if family_id is None:
+        st.info("Este termo ainda não tem família. Rode `python scripts\\families.py agrupar` para cadastrar links.")
+    else:
+        links = repo.list_links(engine, family_id)
+        if not links:
+            st.caption("Nenhum link cadastrado para esta família. Adicione abaixo.")
+        cols = st.columns(len(MARKETPLACES))
+        for col, mp in zip(cols, MARKETPLACES.values()):
+            with col:
+                st.markdown(f"**{mp.name}**")
+                mp_links = [x for x in links if x["marketplace"] == mp.code]
+                if not mp_links:
+                    st.caption("nenhum link")
+                for link in mp_links:
+                    st.link_button(link["label"] or "Ver produto", link["url"], width="stretch")
+                    if st.button("Remover", key=f"rm_link_{link['id']}", type="tertiary"):
+                        repo.delete_link(engine, link["id"])
+                        st.rerun()
+
+        with st.expander("Adicionar link de produto"):
+            with st.form(f"novo_link_{family_id}", clear_on_submit=True):
+                code = st.selectbox("Marketplace", list(MARKETPLACES), format_func=lambda c: MARKETPLACES[c].name)
+                url = st.text_input("Link do produto (https://...)")
+                label = st.text_input("Descrição (opcional)", placeholder="ex.: kit com 2 unidades")
+                if st.form_submit_button("Salvar link"):
+                    try:
+                        save_link(engine, family_id, code, url, label)
+                        st.success("Link salvo.")
+                        st.rerun()
+                    except ValueError as exc:
+                        st.error(f"Não foi possível salvar: {exc}")
+
+    st.markdown("**Buscar nos marketplaces** (abre a busca no site; não é um produto específico)")
+    for col, (name, url) in zip(st.columns(len(MARKETPLACES)), search_links(family).items()):
+        col.link_button(f"Buscar na {name}" if name != "Mercado Livre" else "Buscar no Mercado Livre", url,
+                        width="stretch")
+
+
 # ------------------------------------------------------------------ página
 
 def main():
     try:
         settings = load_settings()
         cfg = load_scoring_config()
-        engine_for(settings.database_url)
+        engine = engine_for(settings.database_url)
     except (ValueError, ScoringConfigError, SchemaOutdatedError) as exc:
         st.error(f"Erro de configuração: {exc}")
         st.stop()
@@ -244,6 +300,9 @@ def main():
             st.rerun()
 
     ranking = ui.filter_ranking(d.ranking, countries, sources, classes, categories, min_score, min_conf, search)
+    # Contagem de links lida na hora (fora do cache): muda quando você salva um link.
+    counts = repo.count_links_by_family(engine)
+    ranking = ranking.assign(links=ranking["familia_id"].map(lambda f: link_count(counts, f)))
 
     tabs = st.tabs(["Ranking", *ui.TAB_GROUPS, "Categorias", "Detalhes"])
     with tabs[0]:
@@ -262,7 +321,7 @@ def main():
                 "pontuacao_media": st.column_config.NumberColumn("Pontuação média", format="%.1f"),
             })
     with tabs[5]:
-        detail_page(d, ranking, cfg)
+        detail_page(d, ranking, cfg, engine)
 
 
 main()

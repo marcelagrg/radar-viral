@@ -94,6 +94,7 @@ def load_dashboard(
         ind = window_indicators(main.data, cfg.main_window, main.period_days, main.metric)
         rows.append({
             "familia": r.family,
+            "familia_id": main.family_id,
             "pais": r.country,
             "pontuacao": r.score,
             "confianca": r.confidence,
