@@ -138,12 +138,18 @@ def build_series(df: pd.DataFrame) -> list[Series]:
 
 
 def latest_series_per_family(series: list[Series]) -> list[Series]:
-    """Para cada família/fonte/país/métrica, fica a série mais recente
-    (para o Google Trends, a exportação com a data final mais nova)."""
+    """Para cada família/fonte/país/métrica E FREQUÊNCIA, fica a série mais
+    recente (no Google Trends, a exportação com a data final mais nova).
+
+    A frequência entra na chave para que um export de 30 dias (diário) não
+    "esconda" o de 12 meses (semanal): os dois descrevem horizontes diferentes
+    e ambos são usados na análise e na pontuação.
+    """
     best: dict[tuple, Series] = {}
     for s in series:
-        key = (s.family_name, s.source_code, s.country, s.metric)
+        key = (s.family_name, s.source_code, s.country, s.metric, s.period_days)
         current = best.get(key)
         if current is None or (s.data.index[-1], s.run_id or 0) > (current.data.index[-1], current.run_id or 0):
             best[key] = s
-    return sorted(best.values(), key=lambda s: s.family_name)
+    # Dentro da família: períodos mais longos primeiro (semanal antes de diário)
+    return sorted(best.values(), key=lambda s: (s.family_name, -(s.period_days or 0)))

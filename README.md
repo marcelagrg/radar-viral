@@ -3,7 +3,7 @@
 Plataforma para identificar produtos e tendências **emergentes** (crescimento
 acelerado com potencial de expansão), começando pelo mercado brasileiro.
 
-> Status: **Etapa 9 — Importação em lote (rotina semanal)** concluída.
+> Status: **Etapa 10 — Exports de 30 e 7 dias do Google Trends** concluída.
 
 Requer **Python 3.11+** (`python --version`).
 

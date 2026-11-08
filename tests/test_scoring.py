@@ -188,3 +188,17 @@ def test_teto_aparece_no_detalhamento(cfg):
     r = sc.score_group("p", "BR", [make_series([10, 20, 100, 40])], replace(cfg, main_window=14))
     assert r.score == 40 and r.contributions["teto_pico_passageiro"] < 0
     assert sum(r.contributions.values()) == pytest.approx(r.score, abs=0.1)
+
+
+def test_export_curto_nao_rebaixa_qualidade(cfg):
+    """Família com série semanal longa + série diária curta: a confiança vem da melhor."""
+    import pandas as pd
+    from radar_viral.analysis.series import Series
+
+    semanal = make_series([10 + i for i in range(52)])
+    diaria = Series(None, "[SIMULADO] x", "google_trends", "BR", "google_trends_0_100", 2, ["x"],
+                    pd.Series([50.0] * 30, index=pd.date_range("2026-10-01", periods=30, freq="D")), 1, 0)
+    so_semanal = sc.score_group("x", "BR", [semanal], cfg)
+    as_duas = sc.score_group("x", "BR", [semanal, diaria], cfg)
+    assert as_duas.quality == so_semanal.quality == 1.0
+    assert as_duas.confidence == so_semanal.confidence

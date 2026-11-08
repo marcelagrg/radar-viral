@@ -139,7 +139,9 @@ def score_group(family: str, country: str, series: list[Series], cfg: ScoringCon
     if main[3] == "pico passageiro" and score > cap:
         contributions["teto_pico_passageiro"] = cap - score
         score = cap
-    quality = _mean([data_quality(s, ind) for s, ind, _, _ in per_source]) or 0.0
+    # Qualidade = a da MELHOR série disponível: um export curto (30 dias) não
+    # deve rebaixar a confiança dada por um de 12 meses da mesma família.
+    quality = max((data_quality(s, ind) for s, ind, _, _ in per_source), default=0.0)
     return ScoreResult(
         family=family,
         country=country,

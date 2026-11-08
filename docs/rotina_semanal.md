@@ -5,6 +5,8 @@ Tempo estimado: 10–20 minutos por semana.
 ## 1. Baixar os exports do Google Trends
 Em https://trends.google.com.br, para cada grupo de produtos que você acompanha:
 - país **Brasil**, período **Últimos 12 meses** (sempre o mesmo, para comparar);
+- opcional: também **Últimos 30 dias**, para ver o movimento recente (janelas de 7 e 14 dias).
+  O export de 7 dias aparece no gráfico, mas tem dias de menos para os indicadores;
 - até 5 termos parecidos por consulta ("+ Comparar");
 - no quadro "Interesse ao longo do tempo", clique no ícone de download.
 

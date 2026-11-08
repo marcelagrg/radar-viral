@@ -22,9 +22,10 @@ from __future__ import annotations
 import csv
 import io
 import re
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from urllib.parse import urlencode
+from zoneinfo import ZoneInfo
 
 from sqlalchemy import Engine
 
@@ -78,6 +79,80 @@ def explore_url(term: str, geo: str, start: date, end: date) -> str:
     return f"https://trends.google.com.br/trends/explore?{query}"
 
 
+# Fuso usado para decidir a que DIA pertence um horário (exports de 7 dias
+# vêm em UTC). Países fora da lista usam UTC.
+COUNTRY_TIMEZONES = {"BR": "America/Sao_Paulo"}
+
+
+def _parse_rows(data_rows, header) -> tuple[list[tuple[int, datetime | date, list[str]]], bool, list[str]]:
+    """Lê a 1ª coluna como data ('2026-10-10') ou data-hora ('2026-11-01T12:00:00Z').
+
+    Devolve (linhas, tem_horario, erros). Todas as linhas precisam do mesmo formato.
+    """
+    errors, parsed = [], []
+    has_time = "T" in data_rows[0][0] if data_rows and data_rows[0] else False
+    for line_no, row in enumerate(data_rows, start=2):
+        if len(row) != len(header):
+            errors.append(f"linha {line_no}: esperado {len(header)} valores, encontrado {len(row)}")
+            continue
+        text = row[0].strip()
+        try:
+            if has_time != ("T" in text):
+                raise ValueError
+            # fromisoformat entende o 'Z' (UTC) a partir do Python 3.11
+            when = datetime.fromisoformat(text) if has_time else datetime.strptime(text, "%Y-%m-%d").date()
+            if has_time and when.tzinfo is None:
+                raise ValueError
+            parsed.append((line_no, when, row[1:]))
+        except ValueError:
+            errors.append(f"linha {line_no}: data inválida {row[0]!r}")
+    stamps = [w for _, w, _ in parsed]
+    if stamps != sorted(set(stamps)):
+        errors.append("as datas precisam estar em ordem crescente e sem repetição")
+    return parsed, has_time, errors
+
+
+def _daily_from_subdaily(parsed, terms, country, include_partial, errors):
+    """Agrupa pontos de algumas horas (export de 7 dias) em UM valor por dia.
+
+    - O dia é o do fuso do país (BR: horário de Brasília), não o de UTC.
+    - Valor do dia = MÉDIA dos pontos (mantém a escala 0–100 do Trends).
+    - Dia incompleto (menos pontos que o esperado, típico do 1º e do último
+      dia do export) é descartado, salvo include_partial=True.
+    Devolve [(linhas, dia, {termo: (valor, textos_originais)})] e o nº de dias descartados.
+    """
+    if len(parsed) < 2:
+        errors.append("export com horário precisa de pelo menos 2 pontos")
+        return [], 0
+    step = min(b[1] - a[1] for a, b in zip(parsed, parsed[1:]))
+    if step < timedelta(hours=1) or timedelta(days=1) % step:
+        errors.append(
+            f"intervalo de {step} entre pontos não é suportado; use exports de 7 dias, 30 dias ou 12 meses"
+        )
+        return [], 0
+    expected = timedelta(days=1) // step
+    tz = ZoneInfo(COUNTRY_TIMEZONES.get(country, "UTC"))
+
+    by_day: dict[date, list] = {}
+    for line_no, when, values in parsed:
+        by_day.setdefault(when.astimezone(tz).date(), []).append((line_no, values))
+
+    out, dropped = [], 0
+    for day, points in sorted(by_day.items()):
+        if len(points) < expected and not include_partial:
+            dropped += 1
+            continue
+        per_term = {}
+        for i, term in enumerate(terms):
+            raws = [values[i].strip() for _, values in points]
+            try:
+                per_term[term] = (sum(parse_value(r) for r in raws) / len(raws), raws)
+            except ValueError as exc:
+                errors.append(f"dia {day:%d/%m/%Y} ({term}): {exc}")
+        out.append(([ln for ln, _ in points], day, per_term))
+    return out, dropped
+
+
 def read_trends(
     text: str,
     country: str,
@@ -86,7 +161,12 @@ def read_trends(
     include_partial: bool = False,
     simulated: bool = False,
 ) -> tuple[list[ObservationIn], int]:
-    """Converte o texto do arquivo em ObservationIn. Devolve (itens, ignorados)."""
+    """Converte o texto do arquivo em ObservationIn. Devolve (itens, valores ignorados).
+
+    Aceita os três formatos de export confirmados com arquivos reais:
+    12 meses (semanal, '2025-11-02'), 30 dias (diário, '2026-10-10') e
+    7 dias (a cada 4 horas, '2026-11-01T12:00:00Z' -> agregado por dia).
+    """
     lines = [line for line in text.splitlines() if line.strip()]
     if not lines:
         raise CsvValidationError(["arquivo vazio"])
@@ -101,54 +181,58 @@ def read_trends(
     if not data_rows:
         raise CsvValidationError(["nenhuma linha de dados encontrada"])
 
-    errors: list[str] = []
-    parsed: list[tuple[int, date, list[str]]] = []
-    for line_no, row in enumerate(data_rows, start=2):
-        if len(row) != len(header):
-            errors.append(f"linha {line_no}: esperado {len(header)} valores, encontrado {len(row)}")
-            continue
-        try:
-            parsed.append((line_no, datetime.strptime(row[0].strip(), "%Y-%m-%d").date(), row[1:]))
-        except ValueError:
-            errors.append(f"linha {line_no}: data inválida {row[0]!r}")
-    dates = [d for _, d, _ in parsed]
-    if dates != sorted(set(dates)):
-        errors.append("as datas precisam estar em ordem crescente e sem repetição")
+    parsed, has_time, errors = _parse_rows(data_rows, header)
     if errors:
         raise CsvValidationError(errors)
 
-    # Período parcial: o último ponto só está completo se o período inteiro
-    # (ex.: 7 dias) terminou ANTES do fim da consulta. Um ponto parcial
-    # parece uma queda de interesse que não aconteceu.
-    skip_last = False
-    if len(dates) >= 2 and period_end is not None and not include_partial:
-        step = dates[-1] - dates[-2]
-        skip_last = dates[-1] + step > period_end
+    # periods: [(linhas_do_csv, dia, {termo: (valor, textos_originais)})]
+    if has_time:
+        periods, dropped_days = _daily_from_subdaily(parsed, terms, country, include_partial, errors)
+        skipped = dropped_days * len(terms)
+    else:
+        periods = []
+        for line_no, day, values in parsed:
+            per_term = {}
+            for term, raw in zip(terms, values):
+                try:
+                    per_term[term] = (parse_value(raw), [raw.strip()])
+                except ValueError as exc:
+                    errors.append(f"linha {line_no} ({term}): {exc}")
+            periods.append(([line_no], day, per_term))
+        # Período parcial: o último ponto só está completo se o período inteiro
+        # (ex.: 7 dias, ou 1 dia) terminou ANTES do fim da consulta. Um ponto
+        # parcial parece uma queda de interesse que não aconteceu.
+        skipped = 0
+        days = [d for _, d, _ in periods]
+        if len(days) >= 2 and period_end is not None and not include_partial:
+            if days[-1] + (days[-1] - days[-2]) > period_end:
+                periods, skipped = periods[:-1], len(terms)
+    if errors:
+        raise CsvValidationError(errors)
 
     items: list[ObservationIn] = []
-    for idx, (line_no, ref_date, values) in enumerate(parsed):
-        if skip_last and idx == len(parsed) - 1:
-            break
-        for term, raw in zip(terms, values):
+    for line_nos, day, per_term in periods:
+        for term, (value, raws) in per_term.items():
             try:
                 items.append(
                     ObservationIn(
                         term=term,
                         country=country,
-                        reference_date=ref_date,
-                        popularity_value=parse_value(raw),
+                        reference_date=day,
+                        popularity_value=value,
                         popularity_metric=METRIC,
                         url=explore_url(term, *url_info) if url_info else None,
                         is_simulated=simulated,
-                        raw_payload={"csv_line": line_no, "date": ref_date.isoformat(), "term": term,
-                                     "value": raw.strip(), "terms_in_query": terms},
+                        raw_payload={"csv_lines": line_nos, "date": day.isoformat(), "term": term,
+                                     "values": raws, "terms_in_query": terms,
+                                     "aggregated": "média diária" if has_time else None},
                     )
                 )
             except ValueError as exc:
-                errors.append(f"linha {line_no} ({term}): {exc}")
+                errors.append(f"{day:%d/%m/%Y} ({term}): {exc}")
     if errors:
         raise CsvValidationError(errors)
-    return items, (len(terms) if skip_last else 0)
+    return items, skipped
 
 
 def import_google_trends(

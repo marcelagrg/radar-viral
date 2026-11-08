@@ -158,7 +158,7 @@ def detail_page(d: ui.DashboardData, ranking, cfg, engine):
     where_to_buy(engine, family, family_id)
 
     for s in series_list:
-        st.subheader(f"Evolução — {s.source_code}")
+        st.subheader(f"Evolução — {s.source_code} ({s.frequency})")
         first, last = s.data.index[0].date(), s.data.index[-1].date()
         if first < last:
             start, end = st.slider("Período do gráfico", min_value=first, max_value=last, value=(first, last),

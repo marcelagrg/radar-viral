@@ -87,3 +87,19 @@ def test_janela_invalida(engine):
 
 def test_banco_vazio(engine):
     assert growth_table(engine).empty
+
+
+def test_semanal_e_diario_convivem(engine):
+    """Export de 12 meses (semanal) + export de 30 dias (diário) da mesma família:
+    os dois ficam disponíveis; o diário não esconde o semanal."""
+    seed_trends_run(engine, [10] * 30, start=date(2026, 1, 4))           # semanal
+    src = repo.get_or_create_source(engine, "google_trends", "Google Trends")
+    run = repo.start_run(engine, src, "BR")
+    repo.add_observations(engine, run, [
+        ObservationIn(term="[SIMULADO] fone", reference_date=date(2026, 10, 1) + timedelta(days=i),
+                      popularity_value=50, popularity_metric="google_trends_0_100", is_simulated=True)
+        for i in range(30)
+    ])
+    repo.finish_run(engine, run, "success")
+    latest = sr.latest_series_per_family(sr.build_series(sr.load_observations(engine, include_simulated=True)))
+    assert [s.frequency for s in latest] == ["semanal", "diária"]
