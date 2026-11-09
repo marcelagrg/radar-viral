@@ -3,7 +3,7 @@
 Plataforma para identificar produtos e tendências **emergentes** (crescimento
 acelerado com potencial de expansão), começando pelo mercado brasileiro.
 
-> Status: **Etapa 10 — Exports de 30 e 7 dias do Google Trends** concluída.
+> Status: **Etapa 11 — Tipos de tendência (sustentada, súbita)** concluída.
 
 Requer **Python 3.11+** (`python --version`).
 
@@ -66,6 +66,10 @@ python scripts\score.py --detalhe
 
 Pesos em `config/pontuacao.toml`; explicação em `docs/pontuacao.md`.
 
+## Tipos de tendência
+
+Tendência sustentada, alta súbita (sazonal: em breve). Regras ajustáveis em `config/tendencias.toml`; explicação em `docs/tipos_tendencia.md`.
+
 ## Painel
 
 ```powershell
@@ -113,6 +117,8 @@ python scripts\import_csv.py tests\fixtures\exemplo_simulado.csv --fonte teste_m
 | `.streamlit/config.toml` | Tema do painel |
 | `radar_viral/marketplaces.py` | Validação de links e links de busca |
 | `radar_viral/collectors/batch.py` | Importação em lote de uma pasta |
+| `radar_viral/analysis/trend_types.py` | Tipos de tendência |
+| `config/tendencias.toml` | Parâmetros dos tipos de tendência (editável) |
 | `scripts/init_db.py` | Cria o banco |
 | `scripts/import_pasta.py` | Rotina semanal: importa a pasta e agrupa |
 | `scripts/links.py` | Adicionar/listar/remover links de compra |

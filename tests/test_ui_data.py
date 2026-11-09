@@ -94,3 +94,14 @@ def test_exportacoes_antigas_ficam_separadas(engine, cfg):
     d = ui.load_dashboard(engine, cfg, include_simulated=True)
     key = ("[SIMULADO] fone (sem família)", "BR")
     assert len(d.latest[key]) == 1 and len(d.all_series[key]) == 2
+
+
+def test_tipo_de_tendencia_no_ranking(engine, cfg):
+    seed(engine, "[SIMULADO] fone", [20] * 30 + [40, 38, 42, 41, 39, 44, 43, 40, 42, 45])
+    seed(engine, "[SIMULADO] garrafa", [20] * 30 + [25, 60, 62])
+    d = ui.load_dashboard(engine, cfg, main_window=30, include_simulated=True)
+    tipos = dict(zip(d.ranking["familia"], d.ranking["tipo"]))
+    assert tipos["[SIMULADO] fone (sem família)"] == "tendência sustentada (em alta)"
+    assert tipos["[SIMULADO] garrafa (sem família)"] == "alta súbita (em alta)"
+    so_subitas = ui.filter_ranking(d.ranking, types=["alta súbita"])
+    assert so_subitas["familia"].tolist() == ["[SIMULADO] garrafa (sem família)"]

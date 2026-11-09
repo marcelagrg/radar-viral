@@ -14,6 +14,7 @@ import pandas as pd
 from sqlalchemy import Engine
 
 from radar_viral.analysis.growth import WINDOWS_DAYS, all_windows, classify, window_indicators
+from radar_viral.analysis.trend_types import TrendConfig, TrendType, classify_trend_type, load_trend_config
 from radar_viral.analysis.series import Series, build_series, latest_series_per_family, load_observations
 from radar_viral.scoring.config import ScoringConfig
 from radar_viral.scoring.scorer import ScoreResult, score_series
@@ -44,6 +45,7 @@ class DashboardData:
     categories: pd.DataFrame
     last_update: datetime | None
     main_window: int
+    trend_types: dict[Key, TrendType] = field(default_factory=dict)
     sources: list[str] = field(default_factory=list)
     countries: list[str] = field(default_factory=list)
     has_simulated: bool = False
@@ -64,10 +66,26 @@ def _latest_links(df: pd.DataFrame) -> dict[Key, str]:
     return {k: g["url"].iloc[-1] for k, g in with_url.groupby(["family_name", "country"])}
 
 
+def trend_type_for(series_list: list[Series], trend_cfg: TrendConfig) -> TrendType:
+    """Tipo de tendência a partir da melhor série: a mais longa em tempo
+    (o export de 12 meses tem preferência sobre o de 30 dias)."""
+    best = max(series_list, key=lambda s: (len(s.data) * (s.period_days or 0), len(s.data)))
+    return classify_trend_type(best.data, best.period_days, best.metric, trend_cfg)
+
+
+def type_label(t: TrendType) -> str:
+    return f"{t.tipo} ({t.fase})" if t.fase else t.tipo
+
+
 def load_dashboard(
-    engine: Engine, cfg: ScoringConfig, main_window: int | None = None, include_simulated: bool = False
+    engine: Engine,
+    cfg: ScoringConfig,
+    main_window: int | None = None,
+    include_simulated: bool = False,
+    trend_cfg: TrendConfig | None = None,
 ) -> DashboardData:
     cfg = replace(cfg, main_window=main_window or cfg.main_window)
+    trend_cfg = trend_cfg or load_trend_config()
     df = load_observations(engine, include_simulated)
     last_update = repo.last_successful_run_at(engine)
     empty = DashboardData(pd.DataFrame(), {}, {}, {}, {}, pd.DataFrame(), last_update, cfg.main_window)
@@ -87,6 +105,8 @@ def load_dashboard(
     links = _latest_links(df)
     categories = _family_categories(df)
 
+    trend_types = {key: trend_type_for(ss, trend_cfg) for key, ss in latest.items()}
+
     rows = []
     for r in results:
         key = (r.family, r.country)
@@ -99,6 +119,7 @@ def load_dashboard(
             "pontuacao": r.score,
             "confianca": r.confidence,
             "classificacao": r.classification,
+            "tipo": type_label(trend_types[key]),
             "crescimento_pct": ind.growth_pct,
             "categoria": categories.get(key),
             "fontes": ", ".join(r.sources),
@@ -116,6 +137,7 @@ def load_dashboard(
         categories=category_summary(ranking),
         last_update=last_update,
         main_window=cfg.main_window,
+        trend_types=trend_types,
         sources=sorted(df["source_code"].unique()),
         countries=sorted(df["country"].unique()),
         has_simulated=include_simulated,
@@ -140,6 +162,7 @@ def filter_ranking(
     min_score: float = 0,
     min_confidence: float = 0,
     search: str = "",
+    types: list[str] | None = None,  # no FINAL: um parâmetro novo não desloca os existentes
 ) -> pd.DataFrame:
     """Aplica os filtros da barra lateral. Lista vazia/None = sem filtro."""
     if ranking.empty:
@@ -153,6 +176,8 @@ def filter_ranking(
         mask &= ranking["classificacao"].isin(classifications)
     if categories:
         mask &= ranking["categoria"].isin(categories)
+    if types:  # "alta súbita" casa com "alta súbita (em alta)" e "alta súbita (já caindo)"
+        mask &= ranking["tipo"].apply(lambda t: any(t.startswith(x) for x in types))
     if search.strip():
         mask &= ranking["familia"].str.contains(search.strip(), case=False, regex=False)
     return ranking[mask].reset_index(drop=True)

@@ -49,8 +49,9 @@ def test_painel_com_dados_reais(db_url):
 
     at = run_app()
     assert at.title[0].value == "📡 Radar Viral"
-    assert [t.label for t in at.tabs] == ["Ranking", "Emergentes", "Em crescimento", "Em desaceleração",
-                                          "Categorias", "Detalhes"]
+    assert [t.label for t in at.tabs] == ["Ranking", "Sustentadas", "Altas súbitas", "Emergentes",
+                                          "Em crescimento", "Em desaceleração", "Categorias", "Detalhes"]
+    assert any("Tipo de tendência" in m.value for m in at.markdown)
     assert by_label(at.selectbox, "Família").value == "playstation [BR]"  # página de detalhes
     assert [m.label for m in at.metric] == ["Pontuação", "Confiança", "Qualidade dos dados"]
     assert not at.warning                                   # sem aviso de simulados

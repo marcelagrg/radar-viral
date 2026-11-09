@@ -1,0 +1,29 @@
+# ============================================================================
+# Tipos de tendência (Etapa 11). Explicação completa: docs/tipos_tendencia.md
+# Valores em SEMANAS; o sistema converte para a frequência dos dados.
+# ============================================================================
+
+[linha_de_base]
+# Quantas semanas ANTES do início da alta formam a linha de base (mediana).
+semanas = 12
+
+[alta]
+# A partir de quanto acima da linha de base uma semana conta como "em alta".
+acima_da_base_pct = 50
+# Fração mínima das semanas do período de alta que precisam estar acima
+# (tolera uma ou outra semana de queda no meio).
+fracao_minima_acima = 0.8
+
+[sustentada]
+# "Período considerável": há quantas semanas, no mínimo, está em alta.
+semanas_minimas = 8
+# "Continua em alta": queda máxima do último valor em relação ao pico.
+queda_maxima_do_pico_pct = 30
+
+[subita]
+# "Alta expressiva": quantas vezes a linha de base o valor precisa atingir.
+multiplicador_minimo = 2.0
+# "Súbita": em quantas semanas, no máximo, desde o início da alta.
+semanas_para_atingir = 3
+# Fase "já caindo": queda do último valor em relação ao pico.
+queda_fase_caindo_pct = 40

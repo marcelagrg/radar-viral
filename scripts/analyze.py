@@ -73,6 +73,7 @@ def main(argv: list[str] | None = None) -> int:
               f"aceleração {fmt(r[f'aceleracao_{j}d'], ' p.p.')}, "
               f"consistência {fmt(r[f'consistencia_{j}d'], digits=2, signed=False)}")
         print(f"  Classificação: {r['classificacao'].upper()}")
+        print(f"  Tipo de tendência: {r['tipo']} — {r['tipo_explicacao']}")
         if args.detalhe:
             for w in WINDOWS_DAYS:
                 print(f"    {w:>2}d: {r[f'status_{w}d']:<26} crescimento {fmt(r[f'crescimento_{w}d'], '%')}")

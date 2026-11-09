@@ -6,6 +6,7 @@ import pandas as pd
 from sqlalchemy import Engine
 
 from radar_viral.analysis.growth import WINDOWS_DAYS, all_windows, classify, overall_stats
+from radar_viral.analysis.trend_types import classify_trend_type, load_trend_config
 from radar_viral.analysis.series import build_series, latest_series_per_family, load_observations
 
 
@@ -22,6 +23,7 @@ def growth_table(
     series = build_series(load_observations(engine, include_simulated))
     if not all_runs:
         series = latest_series_per_family(series)
+    trend_cfg = load_trend_config()
     rows = []
     for s in series:
         row = {
@@ -46,6 +48,9 @@ def growth_table(
             row["status" + d] = classify(ind)
             if ind.window_days == main_window:
                 main = ind
+        t = classify_trend_type(s.data, s.period_days, s.metric, trend_cfg)
+        row["tipo"] = f"{t.tipo} ({t.fase})" if t.fase else t.tipo
+        row["tipo_explicacao"] = t.explicacao
         row["janela_principal"] = f"{main_window}d"
         row["classificacao"] = classify(main) if main else "janela inválida"
         rows.append(row)

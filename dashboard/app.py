@@ -19,6 +19,7 @@ import streamlit as st  # noqa: E402
 from radar_viral.config import load_settings  # noqa: E402
 from radar_viral.marketplaces import MARKETPLACES, save_link, search_links  # noqa: E402
 from radar_viral.storage import repository as repo  # noqa: E402
+from radar_viral.analysis.trend_types import SUBITA, SUSTENTADA, TrendConfigError, load_trend_config  # noqa: E402
 from radar_viral.scoring.config import ScoringConfigError, load_scoring_config  # noqa: E402
 from radar_viral.storage.database import SchemaOutdatedError, get_engine, init_db  # noqa: E402
 from radar_viral.ui import data as ui  # noqa: E402
@@ -107,6 +108,7 @@ RANKING_COLUMNS = {
     "pontuacao": st.column_config.ProgressColumn("Pontuação", min_value=0, max_value=100, format="%.1f"),
     "confianca": st.column_config.ProgressColumn("Confiança", min_value=0, max_value=100, format="%.0f"),
     "classificacao": st.column_config.TextColumn("Classificação"),
+    "tipo": st.column_config.TextColumn("Tipo de tendência"),
     # Numérica de propósito (ordenação correta); vazios aparecem como "None".
     "crescimento_pct": st.column_config.NumberColumn("Crescimento", format="%+.1f%%"),
     "categoria": st.column_config.TextColumn("Categoria"),
@@ -152,6 +154,9 @@ def detail_page(d: ui.DashboardData, ranking, cfg, engine):
     c3.metric("Qualidade dos dados", f"{result.quality:.2f}")
     # Texto longo não cabe num st.metric (fica cortado); vai numa linha própria.
     st.markdown(f"**Classificação ({d.main_window} dias):** {result.classification}")
+    t = d.trend_types.get(key)
+    if t:
+        st.markdown(f"**Tipo de tendência:** {ui.type_label(t)} — {t.explicacao}")
     st.caption(DISCLAIMER)
 
     family_id = next((s.family_id for s in series_list if s.family_id is not None), None)
@@ -262,8 +267,9 @@ def main():
     try:
         settings = load_settings()
         cfg = load_scoring_config()
+        load_trend_config()  # valida config/tendencias.toml logo no início
         engine = engine_for(settings.database_url)
-    except (ValueError, ScoringConfigError, SchemaOutdatedError) as exc:
+    except (ValueError, ScoringConfigError, TrendConfigError, SchemaOutdatedError) as exc:
         st.error(f"Erro de configuração: {exc}")
         st.stop()
 
@@ -289,6 +295,7 @@ def main():
         todos = "Todos"
         countries = st.multiselect("País", d.countries, placeholder=todos)
         sources = st.multiselect("Fonte", d.sources, placeholder=todos)
+        types = st.multiselect("Tipo de tendência", [SUSTENTADA, SUBITA], placeholder=todos)
         classes = st.multiselect("Classificação", sorted(d.ranking["classificacao"].unique()), placeholder=todos)
         cats_available = sorted(d.ranking["categoria"].dropna().unique())
         categories = st.multiselect("Categoria", cats_available, placeholder=todos) if cats_available else []
@@ -299,19 +306,26 @@ def main():
             st.cache_data.clear()
             st.rerun()
 
-    ranking = ui.filter_ranking(d.ranking, countries, sources, classes, categories, min_score, min_conf, search)
+    ranking = ui.filter_ranking(d.ranking, countries, sources, classes, categories, min_score, min_conf, search,
+                                types=types)
     # Contagem de links lida na hora (fora do cache): muda quando você salva um link.
     counts = repo.count_links_by_family(engine)
     ranking = ranking.assign(links=ranking["familia_id"].map(lambda f: link_count(counts, f)))
 
-    tabs = st.tabs(["Ranking", *ui.TAB_GROUPS, "Categorias", "Detalhes"])
+    tabs = st.tabs(["Ranking", "Sustentadas", "Altas súbitas", *ui.TAB_GROUPS, "Categorias", "Detalhes"])
     with tabs[0]:
         st.caption(f"{len(ranking)} família(s). Clique numa linha para ver os detalhes.")
         ranking_table(ranking, "tab_ranking")
-    for tab, (name, group) in zip(tabs[1:4], ui.TAB_GROUPS.items()):
+    with tabs[1]:
+        st.caption("Cresceram e continuam em alta há pelo menos 8 semanas (ajustável em config/tendencias.toml).")
+        ranking_table(ranking[ranking["tipo"].str.startswith(SUSTENTADA)], "tab_sustentadas")
+    with tabs[2]:
+        st.caption("Alta expressiva e rápida, há menos de 8 semanas: oportunidade rápida, risco de queda.")
+        ranking_table(ranking[ranking["tipo"].str.startswith(SUBITA)], "tab_subitas")
+    for tab, (name, group) in zip(tabs[3:6], ui.TAB_GROUPS.items()):
         with tab:
             ranking_table(ranking[ranking["classificacao"].isin(group)], f"tab_{name}")
-    with tabs[4]:
+    with tabs[6]:
         if d.categories.empty:
             st.info("Nenhuma fonte importada informa categoria (o Google Trends não informa). "
                     "Use a coluna `categoria` no CSV padrão para ver esta visão.")
@@ -320,7 +334,7 @@ def main():
                 "categoria": "Categoria", "familias": "Famílias", "em_crescimento": "Em crescimento",
                 "pontuacao_media": st.column_config.NumberColumn("Pontuação média", format="%.1f"),
             })
-    with tabs[5]:
+    with tabs[7]:
         detail_page(d, ranking, cfg, engine)
 
 
